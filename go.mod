@@ -1,4 +1,4 @@
-module github.com/savcha-v/diplom_part1
+module diplom_part1
 
 go 1.17
 
