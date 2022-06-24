@@ -20,37 +20,42 @@ type OrderData struct {
 }
 
 // записать в канал заказы со статусами new, registered, processing
-func WriteOrderProcessing(ctx context.Context, cfg *ConfigHndl) {
-	orders, err := cfg.DB.GetOrdersProcessing(ctx)
+func WriteOrderProcessing(ctx context.Context, config *ConfigHndl) {
+	var statusProc []string
+	statusProc = append(statusProc, config.OrdersStatus.New)
+	statusProc = append(statusProc, config.OrdersStatus.Processing)
+	statusProc = append(statusProc, config.OrdersStatus.Registered)
+
+	orders, err := config.DB.GetOrdersProcessing(ctx, statusProc)
 	if err != nil {
 		log.Println(err)
 	}
 	for _, number := range orders {
-		cfg.AddOrderToChannelProc(number)
+		config.AddOrderToChannelProc(number)
 	}
 }
 
 // обработать заказы из канала
-func ReadOrderProcessing(ctx context.Context, cfg *ConfigHndl, accrualAddress string) {
+func ReadOrderProcessing(ctx context.Context, config *ConfigHndl, accrualAddress string) {
 
-	for number := range cfg.ChanOrdersProc {
-		orderData, err := getOrderData(ctx, *cfg.DB, accrualAddress, number)
+	for number := range config.ChanOrdersProc {
+		orderData, err := getOrderData(ctx, *config.DB, accrualAddress, number)
 		if err != nil {
 			log.Println(err)
-			cfg.AddOrderToChannelProc(number)
+			config.AddOrderToChannelProc(number)
 			return
 		}
 
-		status, err := cfg.DB.UpdateOrder(ctx, orderData.UserID, orderData.Order, orderData.Status, orderData.Sum)
+		status, err := config.DB.UpdateOrder(ctx, orderData.UserID, orderData.Order, orderData.Status, orderData.Sum)
 		if err != nil {
 			log.Println(err)
-			cfg.AddOrderToChannelProc(number)
+			config.AddOrderToChannelProc(number)
 			return
 		}
 
 		// если не в конечном статусе
-		if status != cfg.OrdersStatus.Processed && status != cfg.OrdersStatus.Invalid {
-			go cfg.AddOrderToChannelProc(number)
+		if status != config.OrdersStatus.Processed && status != config.OrdersStatus.Invalid {
+			go config.AddOrderToChannelProc(number)
 		}
 
 	}

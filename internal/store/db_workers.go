@@ -35,17 +35,17 @@ func (db *DB) GetUserID(ctx context.Context, number string) (string, error) {
 	return userID, nil
 }
 
-func (db *DB) GetOrdersProcessing(ctx context.Context) ([]string, error) {
+func (db *DB) GetOrdersProcessing(ctx context.Context, statusProc []string) ([]string, error) {
 
 	fmt.Fprintln(os.Stdout, "getOrdersProcessing")
 
 	textQuery := `SELECT "order"
 	FROM  accum 
-	where "status" = $1 or "status" = $2 or "status" = $3`
+	where "status" = ANY($1)`
 
 	var out []string
 	// new, registered, processing
-	rows, err := db.Connect.QueryContext(ctx, textQuery, "New", "Processing", "Registered")
+	rows, err := db.Connect.QueryContext(ctx, textQuery, statusProc)
 	if err != nil {
 		return nil, err
 	}

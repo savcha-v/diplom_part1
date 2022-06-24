@@ -9,16 +9,16 @@ import (
 	"net/http"
 )
 
-func (cfg *ConfigHndl) getBalance(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) getBalance(w http.ResponseWriter, r *http.Request) {
 
 	type out struct {
 		Balanse  float32 `json:"current"`
 		SumSpent float32 `json:"withdrawn"`
 	}
 
-	userID := cookie.GetCookie(r, cfg.Key, "userID")
+	userID := cookie.GetCookie(r, config.Key, "userID")
 
-	balanse, spent, err := cfg.DB.GetBalanseSpent(r.Context(), userID)
+	balanse, spent, err := config.DB.GetBalanseSpent(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "data base error", http.StatusInternalServerError)
 		return
@@ -40,7 +40,7 @@ func (cfg *ConfigHndl) getBalance(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) postOrder(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) postOrder(w http.ResponseWriter, r *http.Request) {
 
 	// 200 — номер заказа уже был загружен этим пользователем;
 	// 202 — новый номер заказа принят в обработку;
@@ -68,10 +68,10 @@ func (cfg *ConfigHndl) postOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := cookie.GetCookie(r, cfg.Key, "userID")
-	httpStatus, order := cfg.DB.AddOrder(r.Context(), order, userID, cfg.ChanOrdersProc, cfg.OrdersStatus.New)
+	userID := cookie.GetCookie(r, config.Key, "userID")
+	httpStatus, order := config.DB.AddOrder(r.Context(), order, userID, config.ChanOrdersProc, config.OrdersStatus.New)
 	if order != "" {
-		cfg.AddOrderToChannelProc(order)
+		config.AddOrderToChannelProc(order)
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -80,13 +80,13 @@ func (cfg *ConfigHndl) postOrder(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) getOrders(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) getOrders(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-	userID := cookie.GetCookie(r, cfg.Key, "userID")
+	userID := cookie.GetCookie(r, config.Key, "userID")
 
-	valueOut, err := cfg.DB.GetAccum(r.Context(), userID)
+	valueOut, err := config.DB.GetAccum(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "getOrders/ data base error", http.StatusInternalServerError)
 		return
@@ -109,7 +109,7 @@ func (cfg *ConfigHndl) getOrders(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) postWithdraw(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) postWithdraw(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -135,8 +135,8 @@ func (cfg *ConfigHndl) postWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := cookie.GetCookie(r, cfg.Key, "userID")
-	httpStatus := cfg.DB.WriteWithdraw(r.Context(), valueIn.Order, valueIn.Sum, userID)
+	userID := cookie.GetCookie(r, config.Key, "userID")
+	httpStatus := config.DB.WriteWithdraw(r.Context(), valueIn.Order, valueIn.Sum, userID)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(httpStatus)
@@ -144,11 +144,11 @@ func (cfg *ConfigHndl) postWithdraw(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) getWithdrawals(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) getWithdrawals(w http.ResponseWriter, r *http.Request) {
 
-	userID := cookie.GetCookie(r, cfg.Key, "userID")
+	userID := cookie.GetCookie(r, config.Key, "userID")
 
-	valueOut, err := cfg.DB.GetWithdrawals(r.Context(), userID)
+	valueOut, err := config.DB.GetWithdrawals(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "data base error", http.StatusInternalServerError)
 		return

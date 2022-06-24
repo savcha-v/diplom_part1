@@ -9,9 +9,9 @@ type DB struct {
 	Connect *sql.DB
 }
 
-func DBInit(cfg config.Config) (db *DB, err error) {
+func DBInit(config config.Config) (db *DB, err error) {
 
-	connect, err := sql.Open("pgx", cfg.DataBase)
+	connect, err := sql.Open("pgx", config.DataBase)
 	if err != nil {
 		return nil, err
 	}

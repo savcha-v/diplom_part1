@@ -10,18 +10,18 @@ import (
 	"net/http"
 )
 
-func (cfg *ConfigHndl) LoginUse(ctx context.Context, login string) (bool, error) {
-	use, err := cfg.DB.LoginUse(ctx, login)
+func (config *ConfigHndl) LoginUse(ctx context.Context, login string) (bool, error) {
+	use, err := config.DB.LoginUse(ctx, login)
 	return use, err
 }
 
-func (cfg *ConfigHndl) NewUser(ctx context.Context, key string, login string, pass string) (string, error) {
+func (config *ConfigHndl) NewUser(ctx context.Context, key string, login string, pass string) (string, error) {
 	// create hash
 	msg := login + pass
 	hash := encryption.Encrypt(msg, key)
 
 	// write in db login/hash
-	userID, err := cfg.DB.WriteNewUser(ctx, login, hash)
+	userID, err := config.DB.WriteNewUser(ctx, login, hash)
 	if err != nil {
 		return "", err
 	}
@@ -29,13 +29,13 @@ func (cfg *ConfigHndl) NewUser(ctx context.Context, key string, login string, pa
 	return userID, nil
 }
 
-func (cfg *ConfigHndl) AuthorizeUser(ctx context.Context, key string, login string, pass string) (string, error) {
+func (config *ConfigHndl) AuthorizeUser(ctx context.Context, key string, login string, pass string) (string, error) {
 	// create hash
 	msg := login + pass
 	hash := encryption.Encrypt(msg, key)
 
 	// read in db login/hash
-	userID, err := cfg.DB.ReadUser(ctx, login, hash)
+	userID, err := config.DB.ReadUser(ctx, login, hash)
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +43,7 @@ func (cfg *ConfigHndl) AuthorizeUser(ctx context.Context, key string, login stri
 	return userID, nil
 }
 
-func (cfg *ConfigHndl) userRegister(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) userRegister(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -64,7 +64,7 @@ func (cfg *ConfigHndl) userRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	use, err := cfg.LoginUse(r.Context(), valueIn.Login)
+	use, err := config.LoginUse(r.Context(), valueIn.Login)
 	if err != nil {
 		http.Error(w, "data base err", http.StatusInternalServerError)
 		return
@@ -74,7 +74,7 @@ func (cfg *ConfigHndl) userRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := cfg.NewUser(r.Context(), cfg.Key, valueIn.Login, valueIn.Pass)
+	userID, err := config.NewUser(r.Context(), config.Key, valueIn.Login, valueIn.Pass)
 	if err != nil {
 		http.Error(w, "data base err", http.StatusInternalServerError)
 		return
@@ -87,7 +87,7 @@ func (cfg *ConfigHndl) userRegister(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) userLogin(w http.ResponseWriter, r *http.Request) {
+func (config *ConfigHndl) userLogin(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -107,7 +107,7 @@ func (cfg *ConfigHndl) userLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := cfg.AuthorizeUser(r.Context(), cfg.Key, valueIn.Login, valueIn.Pass)
+	userID, err := config.AuthorizeUser(r.Context(), config.Key, valueIn.Login, valueIn.Pass)
 	if err != nil {
 		http.Error(w, "data base err", http.StatusInternalServerError)
 		return
@@ -124,19 +124,19 @@ func (cfg *ConfigHndl) userLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w)
 }
 
-func (cfg *ConfigHndl) CheckAuthorized(next http.Handler) http.Handler {
+func (config *ConfigHndl) CheckAuthorized(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// получим куки для идентификации пользователя
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-		userID := cookie.GetCookie(r, cfg.Key, "userID")
+		userID := cookie.GetCookie(r, config.Key, "userID")
 		if userID == "" {
 			// no cookie
 			http.Error(w, "CheckAuth/ userID no cookie", http.StatusUnauthorized)
 			return
 		}
 
-		exist, err := cfg.DB.ExistsUserID(r.Context(), userID)
+		exist, err := config.DB.ExistsUserID(r.Context(), userID)
 		if err != nil {
 			// error server
 			http.Error(w, "CheckAuth/ data base err", http.StatusInternalServerError)
