@@ -21,7 +21,7 @@ func (db *DB) GetBalanseSpent(ctx context.Context, userID string) (balance float
 	return
 }
 
-func (db *DB) AddOrder(ctx context.Context, order string, userID string, chanOrdersProc chan string, statusNew string) (int, string) {
+func (db *DB) AddOrder(ctx context.Context, order string, userID string, chanOrdersProc chan string) (int, string) {
 	mu := &sync.Mutex{}
 	mu.Lock()
 	defer mu.Unlock()
@@ -37,7 +37,7 @@ func (db *DB) AddOrder(ctx context.Context, order string, userID string, chanOrd
 		textInsert := `
 		INSERT INTO accum ("userID", "order", "sum", "date", "status")
 		VALUES ($1, $2, $3, $4, $5)`
-		_, err = db.Connect.ExecContext(ctx, textInsert, userID, order, 0, time.Now(), statusNew)
+		_, err = db.Connect.ExecContext(ctx, textInsert, userID, order, 0, time.Now(), "NEW")
 
 		if err != nil {
 			return http.StatusInternalServerError, ""

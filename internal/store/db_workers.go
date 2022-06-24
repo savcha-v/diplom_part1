@@ -35,17 +35,17 @@ func (db *DB) GetUserID(ctx context.Context, number string) (string, error) {
 	return userID, nil
 }
 
-func (db *DB) GetOrdersProcessing(ctx context.Context, statusProc []string) ([]string, error) {
+func (db *DB) GetOrdersProcessing(ctx context.Context) ([]string, error) {
 
 	fmt.Fprintln(os.Stdout, "getOrdersProcessing")
 
 	textQuery := `SELECT "order"
 	FROM  accum 
-	where "status" = ANY($1)`
+	where "status" = $1 or "status" = $2 or "status" = $3`
 
 	var out []string
 	// new, registered, processing
-	rows, err := db.Connect.QueryContext(ctx, textQuery, statusProc)
+	rows, err := db.Connect.QueryContext(ctx, textQuery, "NEW", "PROCESSING", "REGISTERED")
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (db *DB) UpdateOrder(ctx context.Context, userID string, order string, stat
 	}
 	defer tx.Rollback()
 
-	if status == "Processed" {
+	if status == "PROCESSED" {
 
 		textQuery := `UPDATE accum SET "sum" = $1, "status" = $2 WHERE "order" = $3`
 		_, err = tx.ExecContext(ctx, textQuery, sum, status, order)

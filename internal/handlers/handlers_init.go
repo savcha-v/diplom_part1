@@ -37,7 +37,7 @@ func NewConfig(cfg config.Config) (config *ConfigHndl) {
 		Processing: "PROCESSING",
 		Invalid:    "INVALID",
 		Processed:  "PROCESSED",
-		Registered: "REGISTERED ",
+		Registered: "REGISTERED",
 	}
 
 	config = &(ConfigHndl{

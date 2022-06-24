@@ -21,12 +21,8 @@ type OrderData struct {
 
 // записать в канал заказы со статусами new, registered, processing
 func WriteOrderProcessing(ctx context.Context, config *ConfigHndl) {
-	var statusProc []string
-	statusProc = append(statusProc, config.OrdersStatus.New)
-	statusProc = append(statusProc, config.OrdersStatus.Processing)
-	statusProc = append(statusProc, config.OrdersStatus.Registered)
 
-	orders, err := config.DB.GetOrdersProcessing(ctx, statusProc)
+	orders, err := config.DB.GetOrdersProcessing(ctx)
 	if err != nil {
 		log.Println(err)
 	}
