@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-func (config *ConfigWork) AddOrderToChannelProc(number string) {
-	config.ChanOrdersProc <- number
+func (cfgWork *ConfigWork) AddOrderToChannelProc(number string) {
+	cfgWork.ChanOrdersProc <- number
 }
 
 type OrderData struct {
