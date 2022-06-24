@@ -32,9 +32,11 @@ func main() {
 	server := createServer(cfg, router)
 
 	// workers
-	cfgHndl.StartWorkers(cfg)
-	defer cfgHndl.CloseWorkers()
-	defer cfgHndl.CloseDB()
+	cfgHndl.Workers.Start(cfg, cfgHndl.DB)
+
+	// close
+	defer cfgHndl.Workers.Close()
+	defer cfgHndl.DB.CloseDB()
 
 	// listen
 	log.Fatal(server.ListenAndServe())

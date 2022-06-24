@@ -50,3 +50,7 @@ func DBInit(config config.Config) (db *DB, err error) {
 	db = &DB{Connect: connect}
 	return db, nil
 }
+
+func (db *DB) CloseDB() {
+	db.Connect.Close()
+}

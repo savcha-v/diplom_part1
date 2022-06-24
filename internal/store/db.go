@@ -21,7 +21,7 @@ func (db *DB) GetBalanseSpent(ctx context.Context, userID string) (balance float
 	return
 }
 
-func (db *DB) AddOrder(ctx context.Context, order string, userID string, chanOrdersProc chan string) (int, string) {
+func (db *DB) AddOrder(ctx context.Context, order string, userID string) (int, string) {
 	mu := &sync.Mutex{}
 	mu.Lock()
 	defer mu.Unlock()

@@ -1,27 +1,18 @@
 package handlers
 
 import (
-	"context"
 	"diplom_part1/internal/config"
 	"diplom_part1/internal/store"
+	"diplom_part1/internal/workers"
 	"log"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type ConfigHndl struct {
-	DB             *store.DB
-	Key            string
-	OrdersStatus   OrdersStatus
-	ChanOrdersProc chan string
-}
-
-type OrdersStatus struct {
-	New        string // заказ загружен в систему, но не попал в обработку;
-	Processing string // вознаграждение за заказ рассчитывается;
-	Invalid    string // система расчёта вознаграждений отказала в расчёте;
-	Processed  string // данные по заказу проверены и информация о расчёте успешно получена.
-	Registered string // заказ зарегистрирован, но не начисление не рассчитано;
+	DB      *store.DB
+	Workers *workers.ConfigWork
+	Key     string
 }
 
 func NewConfig(cfg config.Config) (config *ConfigHndl) {
@@ -32,26 +23,16 @@ func NewConfig(cfg config.Config) (config *ConfigHndl) {
 		log.Fatal(err)
 	}
 
-	statuses := OrdersStatus{
-		New:        "NEW",
-		Processing: "PROCESSING",
-		Invalid:    "INVALID",
-		Processed:  "PROCESSED",
-		Registered: "REGISTERED",
-	}
+	// workers
+	work := workers.NewConfig()
 
 	config = &(ConfigHndl{
-		DB:             db,
-		Key:            "10c57de0",
-		OrdersStatus:   statuses,
-		ChanOrdersProc: make(chan string),
+		DB:      db,
+		Key:     "10c57de0",
+		Workers: work,
 	})
 
 	return
-}
-
-func (config *ConfigHndl) CloseDB() {
-	config.DB.Connect.Close()
 }
 
 func (config *ConfigHndl) NewRouter() *chi.Mux {
@@ -72,13 +53,4 @@ func (config *ConfigHndl) NewRouter() *chi.Mux {
 		r.Get("/api/user/balance/withdrawals", config.getWithdrawals) // получение информации о выводе средств с накопительного счёта пользователем.
 	})
 	return r
-}
-
-func (config *ConfigHndl) CloseWorkers() {
-	close(config.ChanOrdersProc)
-}
-
-func (config *ConfigHndl) StartWorkers(baseCfg config.Config) {
-	go WriteOrderProcessing(context.Background(), config)
-	go ReadOrderProcessing(context.Background(), config, baseCfg.AccrualAddress)
 }

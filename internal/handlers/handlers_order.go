@@ -69,9 +69,9 @@ func (config *ConfigHndl) postOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := cookie.GetCookie(r, config.Key, "userID")
-	httpStatus, order := config.DB.AddOrder(r.Context(), order, userID, config.ChanOrdersProc)
+	httpStatus, order := config.DB.AddOrder(r.Context(), order, userID)
 	if order != "" {
-		config.AddOrderToChannelProc(order)
+		config.Workers.AddOrderToChannelProc(order)
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

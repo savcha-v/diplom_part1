@@ -1,4 +1,4 @@
-package handlers
+package workers
 
 import (
 	"context"
@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+func (config *ConfigWork) AddOrderToChannelProc(number string) {
+	config.ChanOrdersProc <- number
+}
+
 type OrderData struct {
 	Order  string  `json:"order"`
 	Status string  `json:"status"`
@@ -20,38 +24,38 @@ type OrderData struct {
 }
 
 // записать в канал заказы со статусами new, registered, processing
-func WriteOrderProcessing(ctx context.Context, config *ConfigHndl) {
+func (work *ConfigWork) WriteOrderProcessing(ctx context.Context, db *store.DB) {
 
-	orders, err := config.DB.GetOrdersProcessing(ctx)
+	orders, err := db.GetOrdersProcessing(ctx)
 	if err != nil {
 		log.Println(err)
 	}
 	for _, number := range orders {
-		config.AddOrderToChannelProc(number)
+		work.AddOrderToChannelProc(number)
 	}
 }
 
 // обработать заказы из канала
-func ReadOrderProcessing(ctx context.Context, config *ConfigHndl, accrualAddress string) {
+func (work *ConfigWork) ReadOrderProcessing(ctx context.Context, db *store.DB, accrualAddress string) {
 
-	for number := range config.ChanOrdersProc {
-		orderData, err := getOrderData(ctx, *config.DB, accrualAddress, number)
+	for number := range work.ChanOrdersProc {
+		orderData, err := getOrderData(ctx, *db, accrualAddress, number)
 		if err != nil {
 			log.Println(err)
-			config.AddOrderToChannelProc(number)
+			work.AddOrderToChannelProc(number)
 			return
 		}
 
-		status, err := config.DB.UpdateOrder(ctx, orderData.UserID, orderData.Order, orderData.Status, orderData.Sum)
+		status, err := db.UpdateOrder(ctx, orderData.UserID, orderData.Order, orderData.Status, orderData.Sum)
 		if err != nil {
 			log.Println(err)
-			config.AddOrderToChannelProc(number)
+			work.AddOrderToChannelProc(number)
 			return
 		}
 
 		// если не в конечном статусе
-		if status != config.OrdersStatus.Processed && status != config.OrdersStatus.Invalid {
-			go config.AddOrderToChannelProc(number)
+		if status != "PROCESSED" && status != "INVALID" {
+			go work.AddOrderToChannelProc(number)
 		}
 
 	}
@@ -110,8 +114,4 @@ func getOrderData(ctx context.Context, db store.DB, accrualAddress string, numbe
 	// valueIn.Order = number
 
 	return valueIn, nil
-}
-
-func (config *ConfigHndl) AddOrderToChannelProc(number string) {
-	config.ChanOrdersProc <- number
 }
