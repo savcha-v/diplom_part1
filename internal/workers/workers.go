@@ -24,38 +24,38 @@ type OrderData struct {
 }
 
 // записать в канал заказы со статусами new, registered, processing
-func (work *ConfigWork) WriteOrderProcessing(ctx context.Context, db *store.DB) {
+func (cfgWork *ConfigWork) WriteOrderProcessing(ctx context.Context, db *store.DB) {
 
 	orders, err := db.GetOrdersProcessing(ctx)
 	if err != nil {
 		log.Println(err)
 	}
 	for _, number := range orders {
-		work.AddOrderToChannelProc(number)
+		cfgWork.AddOrderToChannelProc(number)
 	}
 }
 
 // обработать заказы из канала
-func (work *ConfigWork) ReadOrderProcessing(ctx context.Context, db *store.DB, accrualAddress string) {
+func (cfgWork *ConfigWork) ReadOrderProcessing(ctx context.Context, db *store.DB, accrualAddress string) {
 
-	for number := range work.ChanOrdersProc {
+	for number := range cfgWork.ChanOrdersProc {
 		orderData, err := getOrderData(ctx, *db, accrualAddress, number)
 		if err != nil {
 			log.Println(err)
-			work.AddOrderToChannelProc(number)
+			cfgWork.AddOrderToChannelProc(number)
 			return
 		}
 
 		status, err := db.UpdateOrder(ctx, orderData.UserID, orderData.Order, orderData.Status, orderData.Sum)
 		if err != nil {
 			log.Println(err)
-			work.AddOrderToChannelProc(number)
+			cfgWork.AddOrderToChannelProc(number)
 			return
 		}
 
 		// если не в конечном статусе
 		if status != "PROCESSED" && status != "INVALID" {
-			go work.AddOrderToChannelProc(number)
+			go cfgWork.AddOrderToChannelProc(number)
 		}
 
 	}

@@ -24,12 +24,12 @@ func NewConfig(cfg config.Config) (config *ConfigHndl) {
 	}
 
 	// workers
-	work := workers.NewConfig()
+	cfgWork := workers.NewConfig()
 
 	config = &(ConfigHndl{
 		DB:      db,
 		Key:     "10c57de0",
-		Workers: work,
+		Workers: cfgWork,
 	})
 
 	return
