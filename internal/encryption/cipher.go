@@ -3,7 +3,6 @@ package encryption
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"diplom_part1/internal/config"
 	"encoding/hex"
 	"errors"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 	"github.com/theplant/luhn"
 )
 
-func Decrypt(msg string, cfg config.Config) (string, error) {
+func Decrypt(msg string, key string) (string, error) {
 
 	// выделяем подпись
 	dst := msg[:len(msg)-36]
@@ -24,7 +23,7 @@ func Decrypt(msg string, cfg config.Config) (string, error) {
 		panic(err)
 	}
 	// хеш
-	h := hmac.New(sha256.New, []byte(cfg.Key))
+	h := hmac.New(sha256.New, []byte(key))
 	// вычисляем подпись
 	h.Write([]byte(id))
 	sign := h.Sum(nil)
@@ -36,11 +35,11 @@ func Decrypt(msg string, cfg config.Config) (string, error) {
 	}
 }
 
-func Encrypt(src string, cfg config.Config) string {
+func Encrypt(src string, key string) string {
 
 	data := []byte(src)
 	// вычисляем хеш
-	h := hmac.New(sha256.New, []byte(cfg.Key))
+	h := hmac.New(sha256.New, []byte(key))
 	h.Write(data)
 	dst := hex.EncodeToString(h.Sum(nil))
 	return dst

@@ -4,152 +4,32 @@ import (
 	"context"
 	"database/sql"
 	"diplom_part1/internal/config"
-	"diplom_part1/internal/workers"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
-func DBInit(cfg *config.Config) error {
-
-	db, err := sql.Open("pgx", cfg.DataBase)
-	if err != nil {
-		return err
-	}
-
-	// users
-	textCreate := `CREATE TABLE IF NOT EXISTS users(
-		"userID" TEXT,
-		"login" TEXT PRIMARY KEY,
-		"hash" TEXT,
-		"balanse" FLOAT 
-		 );`
-	if _, err := db.Exec(textCreate); err != nil {
-		return err
-	}
-	// accumulation
-	textCreate = `CREATE TABLE IF NOT EXISTS accum(
-		"userID" TEXT,
-		"order" TEXT PRIMARY KEY,
-		"sum" FLOAT,
-		"date" DATE,
-		"status" TEXT
-		 );`
-	if _, err := db.Exec(textCreate); err != nil {
-		return err
-	}
-	// subtraction
-	textCreate = `CREATE TABLE IF NOT EXISTS subtract(
-		"userID" TEXT,
-		"order" TEXT PRIMARY KEY,
-		"sum" FLOAT,
-		"date" DATE
-		 );`
-	if _, err := db.Exec(textCreate); err != nil {
-		return err
-	}
-
-	cfg.ConnectDB = db
-	return nil
-}
-
-func LoginUse(ctx context.Context, cfg config.Config, login string) (bool, error) {
-	var userID string
-
-	db := cfg.ConnectDB
-
-	textQuery := `SELECT "userID" FROM users WHERE "login" = $1`
-	err := db.QueryRowContext(ctx, textQuery, login).Scan(&userID)
-
-	switch {
-	case err == sql.ErrNoRows:
-		return false, nil
-	case err != nil:
-		return false, err
-	default:
-		return true, nil
-	}
-}
-
-func WriteNewUser(ctx context.Context, cfg config.Config, login string, hash string) (string, error) {
-
-	db := cfg.ConnectDB
-
-	userID := uuid.New().String()
-	textInsert := `
-	INSERT INTO users ("userID", "login", "hash", "balanse")
-	VALUES ($1, $2, $3, $4)`
-	_, err := db.ExecContext(ctx, textInsert, userID, login, hash, 0)
-
-	if err != nil {
-		return "", err
-	}
-
-	return userID, nil
-}
-
-func ReadUser(ctx context.Context, cfg config.Config, login string, hash string) (string, error) {
-	var userID string
-
-	db := cfg.ConnectDB
-
-	textQuery := `SELECT "userID" FROM users WHERE "login" = $1 AND "hash" = $2`
-	err := db.QueryRowContext(ctx, textQuery, login, hash).Scan(&userID)
-
-	switch {
-	case err == sql.ErrNoRows:
-		return "", nil
-	case err != nil:
-		return "", err
-	default:
-		return userID, nil
-	}
-}
-
-func ExistsUserID(ctx context.Context, cfg config.Config, userID string) (bool, error) {
-	var login string
-
-	db := cfg.ConnectDB
-
-	textQuery := `SELECT "login" FROM users WHERE "userID" = $1`
-	err := db.QueryRowContext(ctx, textQuery, userID).Scan(&login)
-
-	switch {
-	case err == sql.ErrNoRows:
-		return false, nil
-	case err != nil:
-		return false, err
-	default:
-		return true, nil
-	}
-}
-
-func GetBalanseSpent(ctx context.Context, cfg config.Config, userID string) (balance float32, spent float32, err error) {
-
-	db := cfg.ConnectDB
+func (db *DB) GetBalanseSpent(ctx context.Context, userID string) (balance float32, spent float32, err error) {
 
 	textQuery := `SELECT max(users."balanse"), sum(COALESCE(subtract."sum",0))
 	FROM users left join subtract on users."userID" = subtract."userID"
 	where users."userID" = $1`
 
-	err = db.QueryRowContext(ctx, textQuery, userID).Scan(&balance, &spent)
+	err = db.Connect.QueryRowContext(ctx, textQuery, userID).Scan(&balance, &spent)
 	return
 }
 
-func AddOrder(ctx context.Context, cfg config.Config, order string, userID string) int {
+func (db *DB) AddOrder(ctx context.Context, order string, userID string, chanOrdersProc chan string, statusNew string) (int, string) {
 	mu := &sync.Mutex{}
 	mu.Lock()
 	defer mu.Unlock()
 
 	var receivedUserID string
 
-	db := cfg.ConnectDB
-
 	textQuery := `SELECT "userID" FROM accum WHERE "order" = $1`
-	err := db.QueryRowContext(ctx, textQuery, order).Scan(&receivedUserID)
+	err := db.Connect.QueryRowContext(ctx, textQuery, order).Scan(&receivedUserID)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -157,27 +37,23 @@ func AddOrder(ctx context.Context, cfg config.Config, order string, userID strin
 		textInsert := `
 		INSERT INTO accum ("userID", "order", "sum", "date", "status")
 		VALUES ($1, $2, $3, $4, $5)`
-		_, err = db.ExecContext(ctx, textInsert, userID, order, 0, time.Now(), cfg.OrdersStatus.New)
+		_, err = db.Connect.ExecContext(ctx, textInsert, userID, order, 0, time.Now(), statusNew)
 
 		if err != nil {
-			return http.StatusInternalServerError
+			return http.StatusInternalServerError, ""
 		}
 
-		workers.AddOrderToChannelProc(cfg, order)
-
-		return http.StatusAccepted
+		return http.StatusAccepted, order
 	case err != nil:
-		return http.StatusInternalServerError
+		return http.StatusInternalServerError, ""
 	case receivedUserID != userID:
-		return http.StatusConflict
+		return http.StatusConflict, ""
 	default:
-		return http.StatusOK
+		return http.StatusOK, ""
 	}
 }
 
-func GetAccum(ctx context.Context, cfg config.Config, userID string) ([]config.OutAccum, error) {
-
-	db := cfg.ConnectDB
+func (db *DB) GetAccum(ctx context.Context, userID string) ([]config.OutAccum, error) {
 
 	textQuery := `SELECT "order", "sum", "date", "status"
 	FROM  accum 
@@ -185,7 +61,7 @@ func GetAccum(ctx context.Context, cfg config.Config, userID string) ([]config.O
 
 	var out []config.OutAccum
 
-	rows, err := db.QueryContext(ctx, textQuery, userID)
+	rows, err := db.Connect.QueryContext(ctx, textQuery, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -208,21 +84,19 @@ func GetAccum(ctx context.Context, cfg config.Config, userID string) ([]config.O
 	return out, err
 }
 
-func WriteWithdraw(ctx context.Context, cfg config.Config, order string, sum float32, userID string) int {
+func (db *DB) WriteWithdraw(ctx context.Context, order string, sum float32, userID string) int {
 
 	mu := &sync.Mutex{}
 	mu.Lock()
 	defer mu.Unlock()
 
-	db := cfg.ConnectDB
-
-	tx, err := db.Begin()
+	tx, err := db.Connect.Begin()
 	if err != nil {
 		return http.StatusInternalServerError
 	}
 	defer tx.Rollback()
 
-	balance, _, err := GetBalanseSpent(ctx, cfg, userID)
+	balance, _, err := db.GetBalanseSpent(ctx, userID)
 	if err != nil {
 		return http.StatusInternalServerError
 	}
@@ -235,7 +109,7 @@ func WriteWithdraw(ctx context.Context, cfg config.Config, order string, sum flo
 	textInsert := `
 		INSERT INTO subtract ("userID", "order", "sum", "date")
 		VALUES ($1, $2, $3, $4)`
-	_, err = db.ExecContext(ctx, textInsert, userID, order, sum, time.Now())
+	_, err = db.Connect.ExecContext(ctx, textInsert, userID, order, sum, time.Now())
 
 	if err != nil {
 		return http.StatusInternalServerError
@@ -243,7 +117,7 @@ func WriteWithdraw(ctx context.Context, cfg config.Config, order string, sum flo
 
 	textInsert = `
 		UPDATE users set "balanse" = "balanse" - $1 where "userID" = $2`
-	_, err = db.ExecContext(ctx, textInsert, sum, userID)
+	_, err = db.Connect.ExecContext(ctx, textInsert, sum, userID)
 	if err != nil {
 		return http.StatusInternalServerError
 	}
@@ -253,9 +127,7 @@ func WriteWithdraw(ctx context.Context, cfg config.Config, order string, sum flo
 	return http.StatusOK
 }
 
-func GetWithdrawals(ctx context.Context, cfg config.Config, userID string) ([]config.OutWithdrawals, error) {
-
-	db := cfg.ConnectDB
+func (db *DB) GetWithdrawals(ctx context.Context, userID string) ([]config.OutWithdrawals, error) {
 
 	textQuery := `SELECT "order", "sum", "date"
 	FROM  subtruct 
@@ -263,7 +135,7 @@ func GetWithdrawals(ctx context.Context, cfg config.Config, userID string) ([]co
 
 	var out []config.OutWithdrawals
 
-	rows, err := db.QueryContext(ctx, textQuery, userID)
+	rows, err := db.Connect.QueryContext(ctx, textQuery, userID)
 	if err != nil {
 		return nil, err
 	}

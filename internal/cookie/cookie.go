@@ -1,15 +1,14 @@
 package cookie
 
 import (
-	"diplom_part1/internal/config"
 	"diplom_part1/internal/encryption"
 	"net/http"
 )
 
-func GetCookie(r *http.Request, cfg config.Config, name string) string {
+func GetCookie(r *http.Request, key string, name string) string {
 	value := ""
 	if cookie, err := r.Cookie(name); err == nil {
-		value, err = encryption.Decrypt(cookie.Value, cfg)
+		value, err = encryption.Decrypt(cookie.Value, key)
 		if err != nil {
 			value = cookie.Value
 		}

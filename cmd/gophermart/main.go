@@ -3,8 +3,6 @@ package main
 import (
 	"diplom_part1/internal/config"
 	"diplom_part1/internal/handlers"
-	"diplom_part1/internal/store"
-	"diplom_part1/internal/workers"
 	"log"
 	"net/http"
 
@@ -25,21 +23,18 @@ func main() {
 	// config
 	cfg := config.New()
 
-	// data base
-	if err := store.DBInit(&cfg); err != nil {
-		log.Fatal(err)
-	}
-	defer cfg.ConnectDB.Close()
+	cfgHndl := handlers.NewConfig(cfg)
 
 	// router
-	router := handlers.NewRouter(cfg)
+	router := cfgHndl.NewRouter()
 
 	// server
 	server := createServer(cfg, router)
 
 	// workers
-	workers.StartWorkers(cfg)
-	defer workers.CloseWorkers(cfg)
+	cfgHndl.StartWorkers(cfg)
+	defer cfgHndl.CloseWorkers()
+	defer cfgHndl.CloseDB()
 
 	// listen
 	log.Fatal(server.ListenAndServe())
