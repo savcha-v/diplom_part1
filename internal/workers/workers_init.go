@@ -10,9 +10,9 @@ type ConfigWork struct {
 	ChanOrdersProc chan string
 }
 
-func NewConfig() (config *ConfigWork) {
+func NewConfig() (cfgWork *ConfigWork) {
 
-	config = &(ConfigWork{
+	cfgWork = &(ConfigWork{
 		ChanOrdersProc: make(chan string),
 	})
 
